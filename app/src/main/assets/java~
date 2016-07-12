@@ -1,0 +1,5 @@
+var perfOBJ = performance.timing;
+var PIT = perfOBJ.domComplete - perfOBJ.navigationStart;
+var PTT = perfOBJ.responseEnd - perfOBJ.navigationStart;
+var PLT = perfOBJ.loadEventEnd - perfOBJ.navigationStart;
+console.log(PTT + ':' + PIT + ':' + PLT);
