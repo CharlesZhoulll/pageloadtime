@@ -1,9 +1,6 @@
 package com.example.charles.pltmeasurement;
 
-import android.content.Context;
 import android.graphics.Bitmap;
-import android.os.Looper;
-import android.print.PageRange;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -24,13 +21,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.concurrent.RunnableFuture;
 
 public class PLTmeasurActivity extends AppCompatActivity {
 
     private static final String TAG = "PLTmeasurement";
     private static final int TIMEOUT_COUNTER = 30000;  // Stop loading more results after 30 second until the last website is loaded
-    private static final int LOADING_INTERVAL = 2000;
+    private static final int LOADING_INTERVAL = 4000;
     private static final ArrayList<String> urlList = new ArrayList<String>();
     private static final String js_forNT = "javascript:(\n function() { \n"
             + "setTimeout(function(){var result='';\n"
