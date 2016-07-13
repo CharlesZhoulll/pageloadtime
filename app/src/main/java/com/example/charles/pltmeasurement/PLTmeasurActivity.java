@@ -46,7 +46,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private static String USER_AGENT = "Mozilla/5.0 (Linux; U; Android 4.3; en-us; SCH-I535 Build/JSS15J)" +
             " AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30";
     private int currentUrlIndex = 0;
-    private int totalURLNumber = 0;
+    private String currentHandlingUrl = "";
 
     private boolean readUrlFromFile(String urllist) {
         try {
@@ -64,8 +64,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
             Log.e(TAG, "Fail to open website list " + urllist);
             return false;
         }
-        totalURLNumber = urlList.size();
-        return (totalURLNumber > 0);
+        return (urlList.size() > 0);
     }
 
     private String parseUrl(String url) {
@@ -133,7 +132,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                 // set up webchromeclient
                 mywebview.setWebChromeClient(new WebChromeClient() {
 
-                    private boolean handleMessage(String message, String parsedurl) {
+                    private boolean handleMessage(String message) {
                         if (message.startsWith("PLTresults")) {
                             message = message.substring(11, message.length());
                             String[] separated = message.split(",");
@@ -141,13 +140,13 @@ public class PLTmeasurActivity extends AppCompatActivity {
                                 double ptt = Double.parseDouble(separated[0]);
                                 double pit = Double.parseDouble(separated[1]);
                                 double plt = Double.parseDouble(separated[2]);
-                                if (ptt < 0 ) ptt = 0;
-                                if (pit < 0 ) pit = 0;
-                                if (plt < 0 ) plt = 0;
+                                if (ptt < 0) ptt = 0;
+                                if (pit < 0) pit = 0;
+                                if (plt < 0) plt = 0;
                                 // Otherwise no valid data is collected
-                                message = Double.toString(ptt) + " " +  Double.toString(pit) + " " +
+                                message = Double.toString(ptt) + " " + Double.toString(pit) + " " +
                                         Double.toString(plt);
-                                measurementResults.put(parsedurl, message);
+                                measurementResults.put(currentHandlingUrl, message);
                                 return true;
                             } catch (NumberFormatException e) {
                                 Log.e(TAG, "Cannot parse " + message);
@@ -189,9 +188,9 @@ public class PLTmeasurActivity extends AppCompatActivity {
                             public void run() {
                                 if ((currentUrlIndex + 1) < urlList.size()) {
                                     currentUrlIndex += 1;
-                                    String handingUrl = urlList.get(currentUrlIndex);
-                                    Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + handingUrl + " Total: " + urlList.size());
-                                    mywebview.loadUrl(handingUrl);
+                                    currentHandlingUrl = urlList.get(currentUrlIndex);
+                                    Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + currentHandlingUrl + " Total: " + urlList.size());
+                                    mywebview.loadUrl(currentHandlingUrl);
                                 } else {
                                     if (TIMEOUT == false) {
                                         TIMEOUT = true;
@@ -208,15 +207,12 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         if (!TIMEOUT) {
                             // You can have two choice: only load next page when last page is correctly handled
                             // Or you can ignore it.. by remove the if condition
-                            String fullURL = mywebview.getUrl();
-                            if (fullURL != null) {
-                                String parsedurl = parseUrl(fullURL);
-                                //Log.d(TAG, parsedurl);
-                                // Using host is not a good idea. what if two websites have the same host ?
-                                //if ((measurementResults.get(parsedurl) == null) && handleMessage(message, parsedurl))
-                                if (handleMessage(message, parsedurl))
-                                    loadNext();
-                            }
+                            //Log.d(TAG, parsedurl);
+                            // Using host is not a good idea. what if two websites have the same host ?
+                            String actualURL = mywebview.getUrl();
+                            Log.d(TAG, actualURL + ' ' + currentHandlingUrl);
+                            if ((measurementResults.get(currentHandlingUrl) == null) && handleMessage(message))
+                                loadNext();
                         }
                     }
                 });
@@ -227,10 +223,9 @@ public class PLTmeasurActivity extends AppCompatActivity {
                 webSettings.setAppCacheEnabled(false);
                 webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
                 webSettings.setUserAgentString(USER_AGENT);
-
-                String handlingUrl = urlList.get(currentUrlIndex);
-                mywebview.loadUrl(handlingUrl);
-                Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + handlingUrl + " Total: " + urlList.size());
+                currentHandlingUrl = urlList.get(currentUrlIndex);
+                mywebview.loadUrl(currentHandlingUrl);
+                Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + currentHandlingUrl + " Total: " + urlList.size());
             }
         });
     }
