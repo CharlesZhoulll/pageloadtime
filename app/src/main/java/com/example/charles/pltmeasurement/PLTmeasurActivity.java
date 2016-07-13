@@ -1,5 +1,6 @@
 package com.example.charles.pltmeasurement;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Looper;
 import android.print.PageRange;
@@ -15,6 +16,8 @@ import android.os.Handler;
 import android.widget.Button;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
@@ -72,7 +75,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private String parseUrl(String url) {
         try {
             URL url_parsed = new URL(url);
-            return url_parsed.getHost();
+            return url_parsed.getHost() + url_parsed.getPath();
         } catch (MalformedURLException e) {
             Log.e(TAG, "Cannot parse URL " + url);
             return url;
@@ -120,26 +123,12 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     @Override
                     public void onPageFinished(WebView view, String url) {
                         //super.onPageFinished(view, url);
-                        Log.d(TAG, url + " onPageFinished!!!");
+                        //Log.d(TAG, url + " onPageFinished!!!");
                         if (!redirect) {
                             loadingFinished = true;
                         }
                         if (loadingFinished && !redirect) {
-                            //Log.d(TAG, url + " Finished Loading!!!");
                             view.loadUrl(js_forNT);
-                            // if in measured results, do not loadNext, we have seen this before(so the next page has been loaded)
-                            // if not in measured results, we initial it in measured result,  load next
-
-/*                            String parsedURL = parseUrl(url);
-                            if (measurementResults.get(parsedURL) == null) {
-
-                                Log.d(TAG, "Did not found: " + parsedURL);
-                                measurementResults.put(parsedURL, "0,0,0");
-                                loadNext();
-                            }
-                            else {
-                                Log.d(TAG, "Found: " + parsedURL);
-                            }*/
                         } else {
                             redirect = false;
                         }
@@ -148,7 +137,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                 // set up webchromeclient
                 mywebview.setWebChromeClient(new WebChromeClient() {
 
-                    private boolean handleMessage(String message, String host) {
+                    private boolean handleMessage(String message, String parsedurl) {
                         if (message.startsWith("PLTresults")) {
                             message = message.substring(11, message.length());
                             String[] separated = message.split(",");
@@ -160,8 +149,9 @@ public class PLTmeasurActivity extends AppCompatActivity {
                                 if (pit < 0 ) pit = 0;
                                 if (plt < 0 ) plt = 0;
                                 // Otherwise no valid data is collected
-
-                                measurementResults.put(host, message);
+                                message = Double.toString(ptt) + " " +  Double.toString(pit) + " " +
+                                        Double.toString(plt);
+                                measurementResults.put(parsedurl, message);
                                 return true;
                             } catch (NumberFormatException e) {
                                 Log.e(TAG, "Cannot parse " + message);
@@ -171,25 +161,45 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         return false;
                     }
 
+                    private void saveResults() {
+                        String finalResults = "";
+                        Log.d(TAG, "--------------Results summary-------------");
+                        for (String url : measurementResults.keySet()) {
+                            String newResult = url + " " + measurementResults.get(url);
+                            Log.d(TAG, newResult);
+                            finalResults += (newResult + '\n');
+                        }
+                        Log.d(TAG, "----------------Summary end---------------");
+                        try {
+                            File resultFile = new File("/sdcard/PLTresults.txt");
+                            if (!resultFile.exists()) {
+                                resultFile.createNewFile();
+                            } else {
+                                resultFile.delete();
+                            }
+                            FileOutputStream fs = new FileOutputStream(resultFile);
+                            fs.write(finalResults.getBytes());
+                            fs.close();
+                        } catch (Exception e) {
+                            Log.e(TAG, "Fail to save results, because: " + e.getMessage());
+                        }
+                    }
+
                     private void loadNext() {
                         Handler handler = new Handler();
 
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                if ((currentUrlIndex + 1) < totalURLNumber) {
+                                if ((currentUrlIndex + 1) < urlList.size()) {
                                     currentUrlIndex += 1;
                                     String handingUrl = urlList.get(currentUrlIndex);
-                                    Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + handingUrl);
+                                    Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + handingUrl + " Total: " + urlList.size());
                                     mywebview.loadUrl(handingUrl);
                                 } else {
                                     if (TIMEOUT == false) {
                                         TIMEOUT = true;
-                                        Log.d(TAG, "--------------Results summary-------------");
-                                        for (String url : measurementResults.keySet()) {
-                                            Log.d(TAG, url + " " + measurementResults.get(url));
-                                        }
-                                        Log.d(TAG, "----------------Summary end---------------");
+                                        saveResults();
                                     }
                                 }
                             }
@@ -198,21 +208,22 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     @Override
                     public void onConsoleMessage(String message, int lineNumber, String sourceID) {
-                        Log.d(TAG, message);
+                        //Log.d(TAG + "level2", message);
                         if (!TIMEOUT) {
                             // You can have two choice: only load next page when last page is correctly handled
                             // Or you can ignore it.. by remove the if condition
                             String fullURL = mywebview.getUrl();
                             if (fullURL != null) {
-                                Log.d(TAG, fullURL);
-                                String host = parseUrl(fullURL);
-                                if ((measurementResults.get(host) == null) && handleMessage(message, host))
+                                String parsedurl = parseUrl(fullURL);
+                                //Log.d(TAG, parsedurl);
+                                // Using host is not a good idea. what if two websites have the same host ?
+                                //if ((measurementResults.get(parsedurl) == null) && handleMessage(message, parsedurl))
+                                if (handleMessage(message, parsedurl))
                                     loadNext();
                             }
                         }
                     }
                 });
-
 
                 // Set web setting
                 WebSettings webSettings = mywebview.getSettings();
@@ -223,7 +234,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                 String handlingUrl = urlList.get(currentUrlIndex);
                 mywebview.loadUrl(handlingUrl);
-                Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + handlingUrl);
+                Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + handlingUrl + " Total: " + urlList.size());
             }
         });
     }
