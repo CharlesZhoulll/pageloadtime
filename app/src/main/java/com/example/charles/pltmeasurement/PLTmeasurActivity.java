@@ -45,8 +45,14 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private static HashMap<String, String> measurementResults = new HashMap<String, String>();
     private static String USER_AGENT = "Mozilla/5.0 (Linux; U; Android 4.3; en-us; SCH-I535 Build/JSS15J)" +
             " AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30";
+
+    // For mode 1: fetch a large number of websites
     private int currentUrlIndex = 0;
     private String currentHandlingUrl = "";
+
+    // For mode 2: fetch a single webpage for a large number of times
+    private static final int REPEAT = 5;
+    private int currentTimes = 0;
 
     private boolean readUrlFromFile(String urllist) {
         try {
@@ -85,7 +91,17 @@ public class PLTmeasurActivity extends AppCompatActivity {
         if (!readUrlFromFile("website")) {
             return;
         }
-        //Log.d(TAG, js_forNT);
+
+        if (REPEAT > 0) {
+            if (urlList.size() == 1)
+            {
+                String url = urlList.get(0);
+                for (int i = 0; i < (REPEAT-1); i++) {
+                    urlList.add(url);
+                }
+            }
+        }
+
         final Button start = (Button) findViewById(R.id.buttonStart);
         start.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -113,7 +129,6 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         //Log.d(TAG, url + " onPageStarted!!!");
                         loadingFinished = false;
                     }
-
 
                     @Override
                     public void onPageFinished(WebView view, String url) {
@@ -146,7 +161,10 @@ public class PLTmeasurActivity extends AppCompatActivity {
                                 // Otherwise no valid data is collected
                                 message = Double.toString(ptt) + " " + Double.toString(pit) + " " +
                                         Double.toString(plt);
-                                measurementResults.put(currentHandlingUrl, message);
+                                if (REPEAT == 0)
+                                    measurementResults.put(currentHandlingUrl, message);
+                                else
+                                    measurementResults.put(Integer.toString(currentUrlIndex), message);
                                 return true;
                             } catch (NumberFormatException e) {
                                 Log.e(TAG, "Cannot parse " + message);
@@ -186,13 +204,13 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                if ((currentUrlIndex + 1) < urlList.size()) {
+                                if ((currentUrlIndex + 1) < Math.max(urlList.size(), REPEAT)) {
                                     currentUrlIndex += 1;
                                     currentHandlingUrl = urlList.get(currentUrlIndex);
                                     Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + currentHandlingUrl + " Total: " + urlList.size());
                                     mywebview.loadUrl(currentHandlingUrl);
                                 } else {
-                                    if (TIMEOUT == false) {
+                                    if (!TIMEOUT) {
                                         TIMEOUT = true;
                                         saveResults();
                                     }
@@ -210,9 +228,15 @@ public class PLTmeasurActivity extends AppCompatActivity {
                             //Log.d(TAG, parsedurl);
                             // Using host is not a good idea. what if two websites have the same host ?
                             String actualURL = mywebview.getUrl();
-                            Log.d(TAG, actualURL + ' ' + currentHandlingUrl);
-                            if ((measurementResults.get(currentHandlingUrl) == null) && handleMessage(message))
-                                loadNext();
+                            //Log.d(TAG, actualURL + ' ' + currentHandlingUrl);
+                            if (REPEAT == 0) {
+                                if ((measurementResults.get(currentHandlingUrl) == null) && handleMessage(message))
+                                    loadNext();
+                            }
+                            else {
+                                if ((measurementResults.get(Integer.toString(currentUrlIndex)) == null) && handleMessage(message))
+                                    loadNext();
+                            }
                         }
                     }
                 });
