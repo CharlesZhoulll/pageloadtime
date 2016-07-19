@@ -51,7 +51,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private String currentHandlingUrl = "";
 
     // For mode 2: fetch a single webpage for a large number of times
-    private static final int REPEAT = 2;
+    private static final int REPEAT = 5;
     private int currentTimes = 0;
 
     private boolean readUrlFromFile(String urllist) {
@@ -201,7 +201,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     private void loadNext() {
                         Handler handler = new Handler();
-                        mywebview.clearCache(true);
+                        //mywebview.clearCache(true);
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
@@ -253,7 +253,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                 webSettings.setJavaScriptEnabled(true);
                 webSettings.setAppCacheEnabled(false);
                 webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-                webSettings.setUserAgentString(USER_AGENT);
+                //webSettings.setUserAgentString(USER_AGENT);
                 currentHandlingUrl = urlList.get(currentUrlIndex);
                 mywebview.loadUrl(currentHandlingUrl);
                 Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + currentHandlingUrl + " Total: " + urlList.size());
