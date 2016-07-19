@@ -26,19 +26,19 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
     private static final String TAG = "PLTmeasurement";
     private static final int TIMEOUT_COUNTER = 30000;  // Stop loading more results after 30 second until the last website is loaded
-    private static final int LOADING_INTERVAL = 4000;
+    private static final int LOADING_INTERVAL = 5000;
     private static final ArrayList<String> urlList = new ArrayList<String>();
     private static final String js_forNT = "javascript:(\n function() { \n"
             + "setTimeout(function(){var result='';\n"
             + "var perfOBJ = performance.timing;\n"
+            + "var TTFB = perfOBJ.responseStart - perfOBJ.requestStart;\n"
+            + "var PRT = perfOBJ.responseEnd - perfOBJ.navigationStart;\n"
             + "var PLT = perfOBJ.loadEventEnd - perfOBJ.navigationStart;\n"
-            + "var PIT = perfOBJ.domComplete - perfOBJ.navigationStart;\n"
-            + "var PTT = perfOBJ.responseEnd - perfOBJ.navigationStart;\n"
-            + "result = PTT + ',' + PIT + ',' + PLT;\n"
-            + "console.log('PLTresults:' + result);}, 500);\n"
-            //+ "console.log('PLTresults:' + result);\n"
-            //+ "for (var prop in perfOBJ){\n"
-            //+ "console.log(prop + ':' + perfOBJ[prop]); }}, 500);\n"
+            + "result = TTFB + ',' + PRT + ',' + PLT;\n"
+            //+ "console.log('PLTresults:' + result);}, 500);\n"
+            + "console.log('PLTresults:' + result);\n"
+            + "for (var prop in perfOBJ){\n"
+            + "console.log(prop + ':' + perfOBJ[prop]); }}, 500);\n"
             //+ "console.log('Redirection count:' + performance.navigation.redirectCount);\n"
             + " })()\n";
     private static boolean TIMEOUT = false;  // To see if expired
@@ -51,7 +51,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private String currentHandlingUrl = "";
 
     // For mode 2: fetch a single webpage for a large number of times
-    private static final int REPEAT = 5;
+    private static final int REPEAT = 2;
     private int currentTimes = 0;
 
     private boolean readUrlFromFile(String urllist) {
@@ -138,28 +138,29 @@ public class PLTmeasurActivity extends AppCompatActivity {
                             loadingFinished = true;
                         }
                         if (loadingFinished && !redirect) {
+                            //Log.d(TAG, url + " Page loading finish !!!");
                             view.loadUrl(js_forNT);
                         } else {
                             redirect = false;
                         }
                     }
                 });
+
                 // set up webchromeclient
                 mywebview.setWebChromeClient(new WebChromeClient() {
-
                     private boolean handleMessage(String message) {
                         if (message.startsWith("PLTresults")) {
                             message = message.substring(11, message.length());
                             String[] separated = message.split(",");
                             try {
-                                double ptt = Double.parseDouble(separated[0]);
-                                double pit = Double.parseDouble(separated[1]);
+                                double ttfb = Double.parseDouble(separated[0]);
+                                double prt = Double.parseDouble(separated[1]);
                                 double plt = Double.parseDouble(separated[2]);
-                                if (ptt < 0) ptt = 0;
-                                if (pit < 0) pit = 0;
+                                if (ttfb < 0) ttfb = 0;
+                                if (prt < 0) prt = 0;
                                 if (plt < 0) plt = 0;
                                 // Otherwise no valid data is collected
-                                message = Double.toString(ptt) + " " + Double.toString(pit) + " " +
+                                message = Double.toString(ttfb) + " " + Double.toString(prt) + " " +
                                         Double.toString(plt);
                                 if (REPEAT == 0)
                                     measurementResults.put(currentHandlingUrl, message);
@@ -200,7 +201,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     private void loadNext() {
                         Handler handler = new Handler();
-
+                        mywebview.clearCache(true);
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
@@ -221,7 +222,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     @Override
                     public void onConsoleMessage(String message, int lineNumber, String sourceID) {
-                        //Log.d(TAG + "level2", message);
+                        Log.d(TAG, message);
                         if (!TIMEOUT) {
                             // You can have two choice: only load next page when last page is correctly handled
                             // Or you can ignore it.. by remove the if condition
@@ -229,13 +230,19 @@ public class PLTmeasurActivity extends AppCompatActivity {
                             // Using host is not a good idea. what if two websites have the same host ?
                             String actualURL = mywebview.getUrl();
                             //Log.d(TAG, actualURL + ' ' + currentHandlingUrl);
+                            // Important ! Here the logic is tricky !~~~~, think it through when you got time. but now it is fine
                             if (REPEAT == 0) {
                                 if ((measurementResults.get(currentHandlingUrl) == null) && handleMessage(message))
                                     loadNext();
                             }
                             else {
-                                if ((measurementResults.get(Integer.toString(currentUrlIndex)) == null) && handleMessage(message))
-                                    loadNext();
+                                if (measurementResults.get(Integer.toString(currentUrlIndex)) != null)
+                                    handleMessage(message);
+                                else
+                                {
+                                    if (handleMessage(message))
+                                        loadNext();
+                                }
                             }
                         }
                     }
