@@ -32,7 +32,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
     private static final int TIMEOUT_COUNTER = 30000;  // Stop loading more results after 30 second until the last website is loaded
     private static final int LOADING_INTERVAL = 5000;
-    private static final ArrayList<String> urlList = new ArrayList<String>();
+    private static final ArrayList<String> urlList = new ArrayList<>();
     private static final String js_forNT = "javascript:(\n function() { \n"
             + "setTimeout(function(){var source = window.location.href;\n"
             + "console.log('PLTresults' + ':' + source + ';');\n"
@@ -43,7 +43,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private static boolean TIMEOUT = false;  // To see if expired
 
 
-    private static HashMap<String, String> measurementResults = new HashMap<String, String>();
+    private static HashMap<String, String> measurementResults = new HashMap<>();
     private static String USER_AGENT = "Mozilla/5.0 (Linux; U; Android 4.3; en-us; SCH-I535 Build/JSS15J)" +
             " AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30";
 
@@ -203,49 +203,28 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         // the loadEventEnd > 0, write result, loadNext website
                         // the loadEventEnd == 0, if timeout, write result, loadNext website
                         // Otherwise, wait 0.5s, run JS again, try to get the right load end value
-                        WebView view =
                         if (message.startsWith("PLTresults")) {
                             String[] allPairs = message.split(";");
                             try {
                                 String[] loadEventEndPair = allPairs[1].split(":");
                                 double loadEventEnd = Integer.parseInt(loadEventEndPair[1]);
-                                if (loadEventEnd > 0 || TIMEOUT)
-                                {
+                                // How to decide if (Time out or not?)
+                                if (loadEventEnd > 0 || TIMEOUT) {
                                     saveNewResults(allPairs);
                                     loadNext();
-                                }
-                                else
-                                {
+                                } else {
                                     // wait 0.5s and run js again
-                                    view.loadUrl(js_forNT);
+
+                                    Handler handler = new Handler();
+                                    handler.postDelayed(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            mywebview.loadUrl(js_forNT);
+                                        }
+                                    }, 500);
                                 }
                             } catch (NumberFormatException e) {
                                 Log.e(TAG, "Cannot parse " + message);
-                            }
-                        }
-
-
-
-                        if (!TIMEOUT) {
-                            // You can have two choice: only load next page when last page is correctly handled
-                            // Or you can ignore it.. by remove the if condition
-                            //Log.d(TAG, parsedurl);
-                            // Using host is not a good idea. what if two websites have the same host ?
-                            String actualURL = mywebview.getUrl();
-                            //Log.d(TAG, actualURL + ' ' + currentHandlingUrl);
-                            // Important ! Here the logic is tricky !~~~~, think it through when you got time. but now it is fine
-                            if (REPEAT == 0) {
-                                if ((measurementResults.get(currentHandlingUrl) == null) && handleMessage(message))
-                                    loadNext();
-                            }
-                            else {
-                                if (measurementResults.get(Integer.toString(currentUrlIndex)) != null)
-                                    handleMessage(message);
-                                else
-                                {
-                                    if (handleMessage(message))
-                                        loadNext();
-                                }
                             }
                         }
                     }
