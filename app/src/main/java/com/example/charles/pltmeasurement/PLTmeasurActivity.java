@@ -88,6 +88,8 @@ public class PLTmeasurActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.e(TAG, "Hey");
+        Log.d(TAG, "Hey");
         setContentView(R.layout.activity_main);
         // Read all URLs
         if (!readUrlFromFile("website")) {
@@ -119,7 +121,9 @@ public class PLTmeasurActivity extends AppCompatActivity {
         }
 
         final Button start = (Button) findViewById(R.id.buttonStart);
+
         start.setOnClickListener(new View.OnClickListener() {
+
             public void onClick(View v) {
                 final WebView mywebview = (WebView) findViewById(R.id.myWebView);
                 // Set up webview client
@@ -138,7 +142,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     @Override
                     public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                        //Log.d(TAG, url + " onPageStarted!!!");
+                        Log.d(TAG, url + " onPageStarted!!!");
                     }
 
                     @Override
