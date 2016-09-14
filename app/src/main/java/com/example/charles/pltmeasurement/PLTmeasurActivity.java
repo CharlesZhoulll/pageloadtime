@@ -1,6 +1,7 @@
 package com.example.charles.pltmeasurement;
 
 import android.graphics.Bitmap;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -24,22 +25,18 @@ import java.util.HashMap;
 
 public class PLTmeasurActivity extends AppCompatActivity {
 
-    private static final String TAG = "PLTmeasurement";
+    private static final String TAG = "PLTmeasure";
+    private static final String DIR ="/sdcard/PLT";
     private static final int TIMEOUT_COUNTER = 30000;  // Stop loading more results after 30 second until the last website is loaded
     private static final int LOADING_INTERVAL = 5000;
     private static final ArrayList<String> urlList = new ArrayList<String>();
-    private static final String js_forNT = "javascript:(\n function() { \n"
-            + "setTimeout(function(){var result='';\n"
+    private static final String js_forNT = "javascript:(\n function() {\n"
+            + "setTimeout(function(){;\n"
+            + "var result = 'PLTmeasure:';\n"
             + "var perfOBJ = performance.timing;\n"
-            + "var TTFB = perfOBJ.responseStart - perfOBJ.requestStart;\n"
-            + "var PRT = perfOBJ.responseEnd - perfOBJ.navigationStart;\n"
-            + "var PLT = perfOBJ.loadEventEnd - perfOBJ.navigationStart;\n"
-            + "result = TTFB + ',' + PRT + ',' + PLT;\n"
-            //+ "console.log('PLTresults:' + result);}, 500);\n"
-            + "console.log('PLTresults:' + result);\n"
             + "for (var prop in perfOBJ){\n"
-            + "console.log(prop + ':' + perfOBJ[prop]); }}, 500);\n"
-            //+ "console.log('Redirection count:' + performance.navigation.redirectCount);\n"
+            + "result += prop + ':' + perfOBJ[prop] + ';'};\n"
+            + "console.log(result)}, 200);\n"
             + " })()\n";
     private static boolean TIMEOUT = false;  // To see if expired
     private static HashMap<String, String> measurementResults = new HashMap<String, String>();
@@ -51,7 +48,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private String currentHandlingUrl = "";
 
     // For mode 2: fetch a single webpage for a large number of times
-    private static final int REPEAT = 5;
+    private static final int REPEAT = 2;
     private int currentTimes = 0;
 
     private boolean readUrlFromFile(String urllist) {
@@ -92,11 +89,23 @@ public class PLTmeasurActivity extends AppCompatActivity {
             return;
         }
 
+        File resultDir = new File(DIR);
+
+        if (resultDir.exists()) {
+            resultDir.delete();
+        }
+
+        try {
+            if (!resultDir.mkdir())
+                Log.e(TAG, "Cannot create result folder!");
+        } catch (Exception e) {
+            Log.e(TAG, "Cannot create result folder!");
+        }
+
         if (REPEAT > 0) {
-            if (urlList.size() == 1)
-            {
+            if (urlList.size() == 1) {
                 String url = urlList.get(0);
-                for (int i = 0; i < (REPEAT-1); i++) {
+                for (int i = 0; i < (REPEAT - 1); i++) {
                     urlList.add(url);
                 }
             }
@@ -175,6 +184,32 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         return false;
                     }
 
+                    private void saveNewResults(String[] allPairs) {
+                        String url = mywebview.getUrl();
+                        String[] urlPair = allPairs[0].split(":");
+                        String newRecord = "";
+                        for (int i = 1; i < allPairs.length; i++) {
+                            newRecord += allPairs[i].split(":")[1] + " ";
+                        }
+                        try {
+                            Log.d(TAG, DIR + "/" + url);
+                            File resultFile = new File(DIR + "/" + currentUrlIndex);
+                            if (!resultFile.exists()) {
+                                if (!resultFile.createNewFile()) {
+                                    Log.e(TAG, "Cannot create result file for " + url);
+                                    return;
+                                }
+                            }
+                            // Otherwise, append new result under existing one
+                            FileOutputStream fs = new FileOutputStream(resultFile, true);
+                            fs.write(newRecord.getBytes());
+                            Log.d(TAG, "Save new record for " + url);
+                            fs.close();
+                        } catch (IOException e) {
+                            Log.e(TAG, "Fail to save results, because: " + e.getMessage());
+                        }
+                    }
+
                     private void saveResults() {
                         String finalResults = "";
                         Log.d(TAG, "--------------Results summary-------------");
@@ -223,14 +258,38 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     @Override
                     public void onConsoleMessage(String message, int lineNumber, String sourceID) {
                         Log.d(TAG, message);
-                        if (!TIMEOUT) {
-                            // You can have two choice: only load next page when last page is correctly handled
-                            // Or you can ignore it.. by remove the if condition
-                            //Log.d(TAG, parsedurl);
-                            // Using host is not a good idea. what if two websites have the same host ?
+
+                        if (message.startsWith(TAG)) {
+                            message = message.substring((TAG.length() + 1), message.length());
+                            String[] allPairs = message.split(";");
+                            try {
+                                String[] loadEventEndPair = allPairs[0].split(":");
+                                long loadEventEnd = Long.parseLong(loadEventEndPair[1]);
+                                // How to decide if (Time out or not?)
+                                if (loadEventEnd > 0) {
+                                    saveNewResults(allPairs);
+                                    loadNext();
+                                } else {
+                                    // wait 0.5s and run js again
+
+/*                                    Handler handler = new Handler();
+                                    handler.postDelayed(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            mywebview.loadUrl(js_forNT);
+                                        }
+                                    }, 500);*/
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Cannot parse message:" + message);
+                            }
+                        }
+
+
+
+
+/*                        if (!TIMEOUT) {
                             String actualURL = mywebview.getUrl();
-                            //Log.d(TAG, actualURL + ' ' + currentHandlingUrl);
-                            // Important ! Here the logic is tricky !~~~~, think it through when you got time. but now it is fine
                             if (REPEAT == 0) {
                                 if ((measurementResults.get(currentHandlingUrl) == null) && handleMessage(message))
                                     loadNext();
@@ -244,7 +303,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                                         loadNext();
                                 }
                             }
-                        }
+                        }*/
                     }
                 });
 
