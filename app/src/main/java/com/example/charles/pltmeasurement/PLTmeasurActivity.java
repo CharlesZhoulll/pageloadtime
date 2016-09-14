@@ -39,7 +39,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
             + "var perfOBJ = performance.timing;\n"
             + "for (var prop in perfOBJ){\n"
             + "result += prop + ':' + perfOBJ[prop] + ';'};\n"
-            + "console.log(result)}, 1000);\n"
+            + "console.log(result)}, 200);\n"
             + " })()\n";
     private static boolean TIMEOUT = false;  // To see if expired
 
@@ -132,7 +132,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     public boolean shouldOverrideUrlLoading(WebView view, String url) {
                        // Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                        // startActivity(intent);
-                        mywebview.loadUrl(url);
+                        view.loadUrl(url);
                         return true;
                     }
 
@@ -200,7 +200,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     @Override
                     public void onConsoleMessage(String message, int lineNumber, String sourceID) {
-                        Log.d(TAG, message);
+                        Log.d(TAG, "Hey I am here");
                         // Got new result, handle it, several possibilities
                         // the loadEventEnd > 0, write result, loadNext website
                         // the loadEventEnd == 0, if timeout, write result, loadNext website
