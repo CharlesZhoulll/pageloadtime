@@ -1,6 +1,9 @@
 package com.example.charles.pltmeasurement;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -25,23 +28,21 @@ import java.util.HashMap;
 public class PLTmeasurActivity extends AppCompatActivity {
 
     private static final String TAG = "PLTmeasurement";
+    private static final String DIR = Environment.getExternalStorageDirectory().getPath() + "/PLT";
+
     private static final int TIMEOUT_COUNTER = 30000;  // Stop loading more results after 30 second until the last website is loaded
     private static final int LOADING_INTERVAL = 5000;
     private static final ArrayList<String> urlList = new ArrayList<String>();
     private static final String js_forNT = "javascript:(\n function() { \n"
-            + "setTimeout(function(){var result='';\n"
+            + "setTimeout(function(){var source = window.location.href;\n"
+            + "console.log('PLTresults' + ':' + source + ';');\n"
             + "var perfOBJ = performance.timing;\n"
-            + "var TTFB = perfOBJ.responseStart - perfOBJ.requestStart;\n"
-            + "var PRT = perfOBJ.responseEnd - perfOBJ.navigationStart;\n"
-            + "var PLT = perfOBJ.loadEventEnd - perfOBJ.navigationStart;\n"
-            + "result = TTFB + ',' + PRT + ',' + PLT;\n"
-            //+ "console.log('PLTresults:' + result);}, 500);\n"
-            + "console.log('PLTresults:' + result);\n"
             + "for (var prop in perfOBJ){\n"
-            + "console.log(prop + ':' + perfOBJ[prop]); }}, 500);\n"
-            //+ "console.log('Redirection count:' + performance.navigation.redirectCount);\n"
+            + "console.log(prop + ':' + perfOBJ[prop] + ';'); }}, 500);\n"
             + " })()\n";
     private static boolean TIMEOUT = false;  // To see if expired
+
+
     private static HashMap<String, String> measurementResults = new HashMap<String, String>();
     private static String USER_AGENT = "Mozilla/5.0 (Linux; U; Android 4.3; en-us; SCH-I535 Build/JSS15J)" +
             " AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30";
@@ -51,7 +52,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
     private String currentHandlingUrl = "";
 
     // For mode 2: fetch a single webpage for a large number of times
-    private static final int REPEAT = 5;
+    private static final int REPEAT = 1;
     private int currentTimes = 0;
 
     private boolean readUrlFromFile(String urllist) {
@@ -91,6 +92,20 @@ public class PLTmeasurActivity extends AppCompatActivity {
         if (!readUrlFromFile("website")) {
             return;
         }
+        // Init, check if result folder exist
+        File resultDir = new File(DIR);
+        if (!resultDir.exists())
+        {
+            try
+            {
+                if (!resultDir.createNewFile())
+                    Log.e(TAG, "Cannot create result folder!");
+            }
+            catch (IOException e)
+            {
+                Log.e(TAG, "Cannot create result folder!");
+            }
+        }
 
         if (REPEAT > 0) {
             if (urlList.size() == 1)
@@ -109,92 +124,53 @@ public class PLTmeasurActivity extends AppCompatActivity {
                 // Set up webview client
                 mywebview.setWebViewClient(new WebViewClient() {
 
-                    Boolean loadingFinished = true;
-                    Boolean redirect = false;
+                    //Boolean loadingFinished = true;
+                    //Boolean redirect = false;
 
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                        //Log.d(TAG, url + " shouldOverrideUrlLoading!!!");
-                        if (!loadingFinished) {
-                            redirect = true;
-                        }
-                        loadingFinished = false;
-                        view.loadUrl(url);
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(intent);
                         return true;
                     }
 
                     @Override
                     public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                        //super.onPageStarted(view, url, favicon);
                         //Log.d(TAG, url + " onPageStarted!!!");
-                        loadingFinished = false;
                     }
 
                     @Override
                     public void onPageFinished(WebView view, String url) {
-                        //super.onPageFinished(view, url);
-                        //Log.d(TAG, url + " onPageFinished!!!");
-                        if (!redirect) {
-                            loadingFinished = true;
-                        }
-                        if (loadingFinished && !redirect) {
-                            //Log.d(TAG, url + " Page loading finish !!!");
-                            view.loadUrl(js_forNT);
-                        } else {
-                            redirect = false;
-                        }
+                        view.loadUrl(js_forNT);
                     }
                 });
 
                 // set up webchromeclient
                 mywebview.setWebChromeClient(new WebChromeClient() {
-                    private boolean handleMessage(String message) {
-                        if (message.startsWith("PLTresults")) {
-                            message = message.substring(11, message.length());
-                            String[] separated = message.split(",");
-                            try {
-                                double ttfb = Double.parseDouble(separated[0]);
-                                double prt = Double.parseDouble(separated[1]);
-                                double plt = Double.parseDouble(separated[2]);
-                                if (ttfb < 0) ttfb = 0;
-                                if (prt < 0) prt = 0;
-                                if (plt < 0) plt = 0;
-                                // Otherwise no valid data is collected
-                                message = Double.toString(ttfb) + " " + Double.toString(prt) + " " +
-                                        Double.toString(plt);
-                                if (REPEAT == 0)
-                                    measurementResults.put(currentHandlingUrl, message);
-                                else
-                                    measurementResults.put(Integer.toString(currentUrlIndex), message);
-                                return true;
-                            } catch (NumberFormatException e) {
-                                Log.e(TAG, "Cannot parse " + message);
-                                return false;
-                            }
-                        }
-                        return false;
-                    }
 
-                    private void saveResults() {
-                        String finalResults = "";
-                        Log.d(TAG, "--------------Results summary-------------");
-                        for (String url : measurementResults.keySet()) {
-                            String newResult = url + " " + measurementResults.get(url);
-                            Log.d(TAG, newResult);
-                            finalResults += (newResult + '\n');
+                    private void saveNewResults(String[] allPairs) {
+
+                        String[] urlPair = allPairs[0].split(":");
+                        String url = urlPair[1];
+                        String newRecord = "";
+                        for (int i=1; i < allPairs.length; i++)
+                        {
+                            newRecord += allPairs[i].split(":")[1] + " ";
                         }
-                        Log.d(TAG, "----------------Summary end---------------");
                         try {
-                            File resultFile = new File("/sdcard/PLTresults.txt");
+                            File resultFile = new File(DIR + "/" + url);
                             if (!resultFile.exists()) {
-                                resultFile.createNewFile();
-                            } else {
-                                resultFile.delete();
+                                if (!resultFile.createNewFile())
+                                {
+                                    Log.e(TAG, "Cannot create result file for " + url);
+                                    return;
+                                }
                             }
-                            FileOutputStream fs = new FileOutputStream(resultFile);
-                            fs.write(finalResults.getBytes());
+                            // Otherwise, append new result under existing one
+                            FileOutputStream fs = new FileOutputStream(resultFile, true);
+                            fs.write(newRecord.getBytes());
                             fs.close();
-                        } catch (Exception e) {
+                        } catch (IOException e) {
                             Log.e(TAG, "Fail to save results, because: " + e.getMessage());
                         }
                     }
@@ -213,7 +189,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                                 } else {
                                     if (!TIMEOUT) {
                                         TIMEOUT = true;
-                                        saveResults();
+                                        //saveResults();
                                     }
                                 }
                             }
@@ -223,6 +199,33 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     @Override
                     public void onConsoleMessage(String message, int lineNumber, String sourceID) {
                         Log.d(TAG, message);
+                        // Got new result, handle it, several possibilities
+                        // the loadEventEnd > 0, write result, loadNext website
+                        // the loadEventEnd == 0, if timeout, write result, loadNext website
+                        // Otherwise, wait 0.5s, run JS again, try to get the right load end value
+                        WebView view =
+                        if (message.startsWith("PLTresults")) {
+                            String[] allPairs = message.split(";");
+                            try {
+                                String[] loadEventEndPair = allPairs[1].split(":");
+                                double loadEventEnd = Integer.parseInt(loadEventEndPair[1]);
+                                if (loadEventEnd > 0 || TIMEOUT)
+                                {
+                                    saveNewResults(allPairs);
+                                    loadNext();
+                                }
+                                else
+                                {
+                                    // wait 0.5s and run js again
+                                    view.loadUrl(js_forNT);
+                                }
+                            } catch (NumberFormatException e) {
+                                Log.e(TAG, "Cannot parse " + message);
+                            }
+                        }
+
+
+
                         if (!TIMEOUT) {
                             // You can have two choice: only load next page when last page is correctly handled
                             // Or you can ignore it.. by remove the if condition
@@ -256,7 +259,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                 //webSettings.setUserAgentString(USER_AGENT);
                 currentHandlingUrl = urlList.get(currentUrlIndex);
                 mywebview.loadUrl(currentHandlingUrl);
-                Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + currentHandlingUrl + " Total: " + urlList.size());
+                Log.d(TAG, (currentUrlIndex + 1) + "'s url: " + currentHandlingUrl + " Total is: " + urlList.size());
             }
         });
     }
