@@ -27,18 +27,19 @@ import java.util.HashMap;
 
 public class PLTmeasurActivity extends AppCompatActivity {
 
-    private static final String TAG = "PLTmeasurement";
+    private static final String TAG = "PLTmeasure";
     private static final String DIR = Environment.getExternalStorageDirectory().getPath() + "/PLT";
 
     private static final int TIMEOUT_COUNTER = 30000;  // Stop loading more results after 30 second until the last website is loaded
     private static final int LOADING_INTERVAL = 5000;
     private static final ArrayList<String> urlList = new ArrayList<>();
-    private static final String js_forNT = "javascript:(\n function() { \n"
-            + "setTimeout(function(){var source = window.location.href;\n"
-            + "console.log('PLTresults' + ':' + source + ';');\n"
+    private static final String js_forNT = "javascript:(\n function() {\n"
+            + "setTimeout(function(){;\n"
+            + "var result = 'PLTmeasure:';\n"
             + "var perfOBJ = performance.timing;\n"
             + "for (var prop in perfOBJ){\n"
-            + "console.log(prop + ':' + perfOBJ[prop] + ';'); }}, 500);\n"
+            + "result += prop + ':' + perfOBJ[prop] + ';'};\n"
+            + "console.log(result)}, 1000);\n"
             + " })()\n";
     private static boolean TIMEOUT = false;  // To see if expired
 
@@ -129,8 +130,9 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        startActivity(intent);
+                       // Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                       // startActivity(intent);
+                        mywebview.loadUrl(url);
                         return true;
                     }
 
@@ -150,8 +152,8 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     private void saveNewResults(String[] allPairs) {
 
+                        String url = mywebview.getUrl();
                         String[] urlPair = allPairs[0].split(":");
-                        String url = urlPair[1];
                         String newRecord = "";
                         for (int i=1; i < allPairs.length; i++)
                         {
@@ -203,10 +205,11 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         // the loadEventEnd > 0, write result, loadNext website
                         // the loadEventEnd == 0, if timeout, write result, loadNext website
                         // Otherwise, wait 0.5s, run JS again, try to get the right load end value
-                        if (message.startsWith("PLTresults")) {
+                        if (message.startsWith(TAG)) {
+                            message = message.substring((TAG.length()+1), message.length());
                             String[] allPairs = message.split(";");
                             try {
-                                String[] loadEventEndPair = allPairs[1].split(":");
+                                String[] loadEventEndPair = allPairs[0].split(":");
                                 double loadEventEnd = Integer.parseInt(loadEventEndPair[1]);
                                 // How to decide if (Time out or not?)
                                 if (loadEventEnd > 0 || TIMEOUT) {
@@ -215,16 +218,16 @@ public class PLTmeasurActivity extends AppCompatActivity {
                                 } else {
                                     // wait 0.5s and run js again
 
-                                    Handler handler = new Handler();
+/*                                    Handler handler = new Handler();
                                     handler.postDelayed(new Runnable() {
                                         @Override
                                         public void run() {
                                             mywebview.loadUrl(js_forNT);
                                         }
-                                    }, 500);
+                                    }, 500);*/
                                 }
-                            } catch (NumberFormatException e) {
-                                Log.e(TAG, "Cannot parse " + message);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Cannot parse message:" + message);
                             }
                         }
                     }
