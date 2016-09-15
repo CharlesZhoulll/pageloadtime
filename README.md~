@@ -22,12 +22,3 @@ In a nutshell:
 Time to finish receiving static html page:  responseEnd - navigationStart 
 Time to the DOM is finished rendering and use can see something on the screen: domContentLoadedEventEnd - navigationStart
 Time until all the page are fully loaded: loadEventEnd - navigationStart
-
-Challenges
-
-1. Website get redirected, when it happened, the onPageFinished event is not triggered for the real website, so js code will not be executed.
-
-Known issue:
-
-1. Parse URL is not function very well.
-

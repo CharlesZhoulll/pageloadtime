@@ -1,7 +1,8 @@
 package com.example.charles.pltmeasurement;
 
 import android.graphics.Bitmap;
-import android.os.Environment;
+import android.net.Uri;
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -36,7 +37,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
             + "var perfOBJ = performance.timing;\n"
             + "for (var prop in perfOBJ){\n"
             + "result += prop + ':' + perfOBJ[prop] + ';'};\n"
-            + "console.log(result)}, 200);\n"
+            + "console.log(result)}, 2000);\n"
             + " })()\n";
     private static boolean TIMEOUT = false;  // To see if expired
     private static HashMap<String, String> measurementResults = new HashMap<String, String>();
@@ -58,13 +59,16 @@ public class PLTmeasurActivity extends AppCompatActivity {
             while ((mLine = inputReader.readLine()) != null) {
                 if (mLine.isEmpty())
                     continue;
-                //Log.d(TAG, "Read URL:" + mLine);
-                if (!mLine.startsWith("http://"))
+                // If start with www, add protocol
+                if (mLine.startsWith("www"))
+                    mLine = "http://" + mLine;
+                // If not start with www, nor does it start with http, add http://www
+                else if (!mLine.startsWith("http"))
                     mLine = "http://www." + mLine;
                 urlList.add(mLine);
             }
         } catch (IOException e) {
-            Log.e(TAG, "Fail to open website list " + urllist);
+            Log.e(TAG, "Fail to open website list because " + e.getMessage());
             return false;
         }
         return (urlList.size() > 0);
@@ -99,7 +103,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
             if (!resultDir.mkdir())
                 Log.e(TAG, "Cannot create result folder!");
         } catch (Exception e) {
-            Log.e(TAG, "Cannot create result folder!");
+            Log.e(TAG, "Cannot create result folder!, because " + e.getMessage());
         }
 
         if (REPEAT > 0) {
@@ -123,27 +127,30 @@ public class PLTmeasurActivity extends AppCompatActivity {
 
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                        //Log.d(TAG, url + " shouldOverrideUrlLoading!!!");
-                        if (!loadingFinished) {
+                        Log.d(TAG, url + " shouldOverrideUrlLoading!!!");
+/*                        if (!loadingFinished) {
                             redirect = true;
                         }
-                        loadingFinished = false;
-                        view.loadUrl(url);
+                        loadingFinished = false;*/
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(intent);
+                        //view.loadUrl(url);
                         return true;
                     }
 
                     @Override
                     public void onPageStarted(WebView view, String url, Bitmap favicon) {
                         //super.onPageStarted(view, url, favicon);
-                        //Log.d(TAG, url + " onPageStarted!!!");
-                        loadingFinished = false;
+                        Log.d(TAG, url + " onPageStarted!!!");
+                        //loadingFinished = false;
                     }
 
                     @Override
                     public void onPageFinished(WebView view, String url) {
                         //super.onPageFinished(view, url);
-                        //Log.d(TAG, url + " onPageFinished!!!");
-                        if (!redirect) {
+                        Log.d(TAG, url + " onPageFinished!!!");
+                        view.loadUrl(js_forNT);
+/*                        if (!redirect) {
                             loadingFinished = true;
                         }
                         if (loadingFinished && !redirect) {
@@ -151,13 +158,13 @@ public class PLTmeasurActivity extends AppCompatActivity {
                             view.loadUrl(js_forNT);
                         } else {
                             redirect = false;
-                        }
+                        }*/
                     }
                 });
 
                 // set up webchromeclient
                 mywebview.setWebChromeClient(new WebChromeClient() {
-                    private boolean handleMessage(String message) {
+/*                    private boolean handleMessage(String message) {
                         if (message.startsWith("PLTresults")) {
                             message = message.substring(11, message.length());
                             String[] separated = message.split(",");
@@ -182,7 +189,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                             }
                         }
                         return false;
-                    }
+                    }*/
 
                     private void saveNewResults(String[] allPairs) {
                         String url = mywebview.getUrl();
@@ -210,7 +217,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         }
                     }
 
-                    private void saveResults() {
+/*                    private void saveResults() {
                         String finalResults = "";
                         Log.d(TAG, "--------------Results summary-------------");
                         for (String url : measurementResults.keySet()) {
@@ -232,7 +239,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                         } catch (Exception e) {
                             Log.e(TAG, "Fail to save results, because: " + e.getMessage());
                         }
-                    }
+                    }*/
 
                     private void loadNext() {
                         Handler handler = new Handler();
@@ -248,7 +255,7 @@ public class PLTmeasurActivity extends AppCompatActivity {
                                 } else {
                                     if (!TIMEOUT) {
                                         TIMEOUT = true;
-                                        saveResults();
+                                        //saveResults();
                                     }
                                 }
                             }
@@ -258,7 +265,6 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     @Override
                     public void onConsoleMessage(String message, int lineNumber, String sourceID) {
                         Log.d(TAG, message);
-
                         if (message.startsWith(TAG)) {
                             message = message.substring((TAG.length() + 1), message.length());
                             String[] allPairs = message.split(";");
