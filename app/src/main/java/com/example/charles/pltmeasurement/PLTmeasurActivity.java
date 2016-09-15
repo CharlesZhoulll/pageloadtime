@@ -84,27 +84,44 @@ public class PLTmeasurActivity extends AppCompatActivity {
         }
     }
 
+    private boolean createFolder() {
+        File resultDir = new File(DIR);
+        if (!resultDir.exists()) {
+            try {
+                Log.d(TAG, "Try to create " + DIR);
+                if (!resultDir.mkdir())
+                    return false;
+            } catch (Exception e) {
+                Log.d(TAG, "Create " + DIR  + " failed, because " + e.getMessage());
+                return false;
+            }
+        }
+        else
+        {
+            Log.d(TAG, DIR + " already exist, clean old measurement results");
+            for(File file: resultDir.listFiles())
+                if (!file.isDirectory())
+                    file.delete();
+        }
+        return true;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         // Read all URLs
         if (!readUrlFromFile("website")) {
+            Log.d(TAG, "No website read, check and restart.");
             return;
         }
 
-        File resultDir = new File(DIR);
-
-        if (resultDir.exists()) {
-            resultDir.delete();
+        if (! createFolder())
+        {
+            Log.d(TAG, "Fail to create result folder, check and restart.");
+            return;
         }
 
-        try {
-            if (!resultDir.mkdir())
-                Log.e(TAG, "Cannot create result folder!");
-        } catch (Exception e) {
-            Log.e(TAG, "Cannot create result folder!, because " + e.getMessage());
-        }
 
         if (REPEAT > 0) {
             if (urlList.size() == 1) {
