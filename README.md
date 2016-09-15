@@ -30,4 +30,5 @@ Challenges
 Known issue:
 
 1. Parse URL is not function very well.
+2. Hardcode dir
 

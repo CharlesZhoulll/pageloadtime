@@ -101,7 +101,8 @@ public class PLTmeasurActivity extends AppCompatActivity {
             Log.d(TAG, DIR + " already exist, clean old measurement results");
             for(File file: resultDir.listFiles())
                 if (!file.isDirectory())
-                    file.delete();
+                    if (!file.delete())
+                        Log.d(TAG, "Fail to clean " + file.getName());
         }
         return true;
     }
@@ -123,14 +124,14 @@ public class PLTmeasurActivity extends AppCompatActivity {
         }
 
 
-        if (REPEAT > 0) {
+/*        if (REPEAT > 0) {
             if (urlList.size() == 1) {
                 String url = urlList.get(0);
                 for (int i = 0; i < (REPEAT - 1); i++) {
                     urlList.add(url);
                 }
             }
-        }
+        }*/
 
         final Button start = (Button) findViewById(R.id.buttonStart);
         start.setOnClickListener(new View.OnClickListener() {
@@ -142,9 +143,32 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     Boolean loadingFinished = true;
                     Boolean redirect = false;
 
+                    private boolean ifRedirect(String url) {
+                        if (currentHandlingUrl.equals(url))
+                            return false;
+
+                        // Check some corner case
+                        else if (currentHandlingUrl.equals(url+"/")) {
+                            return false;
+                        }
+                        return true;
+                    }
+
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView view, String url) {
                         Log.d(TAG, url + " shouldOverrideUrlLoading!!!");
+                        if (ifRedirect(url)) {
+                            redirect = true;
+                            Log.d(TAG, "Redirected to " + url + ", reopen the window...");
+                            currentHandlingUrl = url;
+                            // update the url
+                            urlList.set(currentUrlIndex, currentHandlingUrl);
+                            // Reopen the window
+                            mywebview.loadUrl(currentHandlingUrl);
+                            return true;
+                        }
+                        // The shouldOverRideUrlLoading event tells us what are real URL loaded !
+
 /*                        if (!loadingFinished) {
                             redirect = true;
                         }
@@ -159,6 +183,9 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     public void onPageStarted(WebView view, String url, Bitmap favicon) {
                         //super.onPageStarted(view, url, favicon);
                         Log.d(TAG, url + " onPageStarted!!!");
+                        if (redirect)
+                            // Resume redirect event.
+                            redirect = false;
                         //loadingFinished = false;
                     }
 
@@ -166,7 +193,9 @@ public class PLTmeasurActivity extends AppCompatActivity {
                     public void onPageFinished(WebView view, String url) {
                         //super.onPageFinished(view, url);
                         Log.d(TAG, url + " onPageFinished!!!");
-                        view.loadUrl(js_forNT);
+                        if (!redirect)
+                            // No redirect, just run the Navigation Timing API
+                            view.loadUrl(js_forNT);
 /*                        if (!redirect) {
                             loadingFinished = true;
                         }
